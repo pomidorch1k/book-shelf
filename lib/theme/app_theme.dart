@@ -29,7 +29,7 @@ class AppTheme {
         onSurface: AppColors.burntSiennaDark,
         tertiary: AppColors.burntSiennaDark,
       ),
-      scaffoldBackgroundColor: AppColors.powderBlue.withValues(alpha: 0.45),
+      scaffoldBackgroundColor: AppColors.white,
       cardColor: AppColors.white,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.burntSienna,

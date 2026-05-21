@@ -46,40 +46,44 @@ class _AuthScreenState extends State<AuthScreen>
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.burntSienna, AppColors.burntSiennaDark],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 32),
-              const Icon(Icons.auto_stories_rounded, size: 72, color: AppColors.white),
-              const SizedBox(height: 12),
-              Text(
-                'Книжная полка',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: AppColors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Читай с удовольствием каждый день',
-                style: TextStyle(color: AppColors.powderBlue, fontSize: 14),
-              ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      backgroundColor: AppColors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 32),
+            const Icon(Icons.auto_stories_rounded, size: 72, color: AppColors.burntSienna),
+            const SizedBox(height: 12),
+            Text(
+              'Книжная полка',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: AppColors.burntSienna,
+                    fontWeight: FontWeight.w800,
                   ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Читай с удовольствием каждый день',
+              style: TextStyle(
+                color: AppColors.burntSienna.withValues(alpha: 0.7),
+                fontSize: 14,
+              ),
+            ),
+              const SizedBox(height: 24),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                  border: Border.all(color: AppColors.powderBlue.withValues(alpha: 0.6)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.burntSienna.withValues(alpha: 0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
                   child: Column(
                     children: [
                       TabBar(
@@ -114,8 +118,7 @@ class _AuthScreenState extends State<AuthScreen>
                   ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
