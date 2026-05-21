@@ -14,22 +14,18 @@ class Fb2Parser {
     final book = FB2Book(resolvedPath);
     await book.parse();
 
-    final title = book.title?.trim().isNotEmpty == true
-        ? book.title!.trim()
+    final desc = book.description;
+    final title = desc.bookTitle?.trim().isNotEmpty == true
+        ? desc.bookTitle!.trim()
         : _fileName(filePath);
-    final author = book.author?.trim().isNotEmpty == true
-        ? book.author!.trim()
+    final author = desc.authors != null && desc.authors!.isNotEmpty
+        ? _formatAuthor(desc.authors!.first)
         : 'Неизвестный автор';
 
     final chapters = <BookChapter>[];
-    final body = book.body;
-    if (body == null) {
-      throw const FormatException('FB2: пустое тело книги');
-    }
-    final sections = body.sections;
+    final sections = book.body.sections;
     if (sections != null) {
-      for (var i = 0; i < sections.length; i++) {
-        final section = sections[i];
+      for (final section in sections) {
         final content = section.content?.trim() ?? '';
         if (!HtmlUtils.hasReadableText(content)) continue;
         final sectionTitle = section.title?.trim();
@@ -45,15 +41,8 @@ class Fb2Parser {
     }
 
     if (chapters.isEmpty) {
-      final bodyHtml = body.content?.trim() ?? '';
-      if (HtmlUtils.hasReadableText(bodyHtml)) {
-        chapters.add(
-          BookChapter(
-            title: title,
-            html: HtmlUtils.wrapDocument(bodyHtml),
-          ),
-        );
-      }
+      final fallback = await _chapterFromFlatBody(resolvedPath, book, title);
+      if (fallback != null) chapters.add(fallback);
     }
 
     if (chapters.isEmpty) {
@@ -61,6 +50,60 @@ class Fb2Parser {
     }
 
     return ParsedBook(title: title, author: author, chapters: chapters);
+  }
+
+  Future<BookChapter?> _chapterFromFlatBody(
+    String path,
+    FB2Book book,
+    String title,
+  ) async {
+    var res = await File(path).readAsString();
+
+    res = res.replaceAllMapped(RegExp(r'<image([\s\S]+?)\/>'), (match) {
+      final name = RegExp(r'="#([\s\S]+?)"')
+          .firstMatch(match.group(1)!)
+          ?.group(1);
+      if (name == null) return match.group(0)!;
+      for (final image in book.images) {
+        if (image.name == name) {
+          return '<img src="data:image/png;base64, ${image.bytes}"/>';
+        }
+      }
+      return match.group(0)!;
+    });
+
+    res = res.replaceAllMapped(RegExp(r'<empty-line.?>'), (_) => '<br>');
+    res = res.replaceAllMapped(
+      RegExp(r'<a ([a-zA-Z:]*)href([\s\S]+?)>([\s\S]+?)<\/a>'),
+      (match) => match.group(3) ?? '',
+    );
+
+    final bodyMatch = RegExp(r'<body>([\s\S]+)</body>').firstMatch(res);
+    if (bodyMatch == null) return null;
+
+    final bodyInner = bodyMatch.group(1)!.trim();
+    final section = FB2Section(bodyInner);
+    final content = section.content?.trim() ?? bodyInner;
+
+    if (!HtmlUtils.hasReadableText(content)) return null;
+
+    return BookChapter(
+      title: section.title?.trim().isNotEmpty == true ? section.title!.trim() : title,
+      html: HtmlUtils.wrapDocument(content),
+    );
+  }
+
+  String _formatAuthor(FB2Author author) {
+    final parts = [
+      author.lastName,
+      author.firstName,
+      author.middleName,
+    ].where((p) => p != null && p!.trim().isNotEmpty).map((p) => p!.trim());
+
+    final name = parts.join(' ');
+    if (name.isNotEmpty) return name;
+    if (author.nickname?.trim().isNotEmpty == true) return author.nickname!.trim();
+    return 'Неизвестный автор';
   }
 
   Future<String> _resolveFb2Path(String filePath) async {
