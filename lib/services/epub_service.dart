@@ -36,7 +36,7 @@ class EpubService {
 
     void walk(epubx.EpubChapter? chapter, int depth) {
       if (chapter == null) return;
-      final html = chapter.HtmlContent?.Text;
+      final html = chapter.HtmlContent;
       if (html != null && html.trim().isNotEmpty) {
         final name = chapter.Title?.trim().isNotEmpty == true
             ? chapter.Title!.trim()

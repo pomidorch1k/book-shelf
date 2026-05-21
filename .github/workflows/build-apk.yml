@@ -32,6 +32,12 @@ jobs:
       - name: Generate Android platform files
         run: flutter create . --platforms=android
 
+      - name: Remove duplicate Gradle Kotlin DSL files
+        run: |
+          rm -f android/build.gradle.kts
+          rm -f android/app/build.gradle.kts
+          rm -f android/settings.gradle.kts
+
       - name: Build release APK
         run: flutter build apk --release
 
