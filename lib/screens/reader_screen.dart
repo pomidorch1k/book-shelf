@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:provider/provider.dart';
 
 import '../models/book_content.dart';
@@ -9,6 +8,7 @@ import '../models/models.dart';
 import '../models/reader_settings.dart';
 import '../providers/app_state.dart';
 import '../services/parsers/html_utils.dart';
+import '../services/reader_paginator.dart';
 import '../theme/app_theme.dart';
 import '../widgets/reader_settings_sheet.dart';
 
@@ -25,13 +25,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
   ParsedBook? _data;
   bool _loading = true;
   String? _error;
-  int _chapterIndex = 0;
+  List<String> _pages = [];
+  int _pageIndex = 0;
   Timer? _readTimer;
+  late final PageController _pageController =
+      PageController(initialPage: widget.book.lastChapterIndex);
+
+  Size? _lastPageSize;
+  ReaderSettings? _lastSettings;
 
   @override
   void initState() {
     super.initState();
-    _chapterIndex = widget.book.lastChapterIndex;
+    _pageIndex = widget.book.lastChapterIndex;
     _load();
     _readTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) {
@@ -43,6 +49,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void dispose() {
     _readTimer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -55,9 +62,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
           _data = data;
           _loading = false;
           _error = null;
-          if (_chapterIndex >= data.chapters.length) {
-            _chapterIndex = 0;
-          }
         });
       }
     } catch (e) {
@@ -70,13 +74,58 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  void _saveProgress() {
+  String _buildFullText(ParsedBook data) {
+    final buffer = StringBuffer();
+    for (final chapter in data.chapters) {
+      final plain = HtmlUtils.stripTags(chapter.html);
+      if (plain.isEmpty) continue;
+      if (chapter.title.trim().isNotEmpty) {
+        buffer.writeln(chapter.title.trim());
+        buffer.writeln();
+      }
+      buffer.writeln(plain);
+      buffer.writeln();
+    }
+    return buffer.toString().trim();
+  }
+
+  void _paginate(Size pageSize, ReaderSettings settings) {
     if (_data == null) return;
-    final progress = (_chapterIndex + 1) / _data!.chapters.length;
+
+    final textStyle = TextStyle(
+      fontSize: settings.fontSize,
+      height: settings.lineHeight,
+      color: AppTheme.readerTheme(settings, context.read<AppState>().isDark).text,
+    );
+
+    final horizontal = settings.horizontalPadding * 2;
+    final verticalReserve = 8.0;
+
+    _pages = ReaderPaginator.paginate(
+      text: _buildFullText(_data!),
+      style: textStyle,
+      maxWidth: pageSize.width - horizontal,
+      maxHeight: pageSize.height - verticalReserve,
+    );
+
+    if (_pages.isEmpty) {
+      _pages = ['Текст книги не найден.'];
+    }
+
+    final maxIndex = _pages.length - 1;
+    if (_pageIndex > maxIndex) _pageIndex = maxIndex;
+    if (_pageIndex < 0) _pageIndex = 0;
+
+    _lastPageSize = pageSize;
+    _lastSettings = settings.copyWith();
+  }
+
+  void _saveProgress() {
+    if (_pages.isEmpty) return;
     context.read<AppState>().updateBookProgress(
           widget.book.id,
-          _chapterIndex,
-          progress,
+          _pageIndex,
+          (_pageIndex + 1) / _pages.length,
         );
   }
 
@@ -88,9 +137,25 @@ class _ReaderScreenState extends State<ReaderScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => ReaderSettingsSheet(onChanged: () {
-        if (mounted) setState(() {});
+        if (mounted) {
+          setState(() {
+            _lastPageSize = null;
+            _lastSettings = null;
+          });
+        }
       }),
     );
+  }
+
+  void _goToPage(int index) {
+    if (index < 0 || index >= _pages.length) return;
+    setState(() => _pageIndex = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+    _saveProgress();
   }
 
   @override
@@ -114,7 +179,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ),
           actions: [
             IconButton(
-              icon: Icon(Icons.tune_rounded, color: readerTheme.text),
+              icon: Icon(Icons.tune_rounded, color: readerTheme.accent),
               tooltip: 'Настройки читалки',
               onPressed: _openReaderSettings,
             ),
@@ -140,35 +205,96 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
-                              vertical: 8,
+                              vertical: 6,
                             ),
                             child: Row(
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    _data!.chapters[_chapterIndex].title,
-                                    style: TextStyle(
-                                      color: readerTheme.text,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
                                 Text(
-                                  '${_chapterIndex + 1}/${_data!.chapters.length}',
+                                  'Страница',
                                   style: TextStyle(
                                     color: readerTheme.text.withValues(alpha: 0.7),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  _pages.isEmpty
+                                      ? '...'
+                                      : '${_pageIndex + 1} / ${_pages.length}',
+                                  style: TextStyle(
+                                    color: readerTheme.accent,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           Expanded(
-                            child: _ChapterView(
-                              html: _data!.chapters[_chapterIndex].html,
-                              settings: settings,
-                              readerTheme: readerTheme,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final pageSize = Size(
+                                  constraints.maxWidth,
+                                  constraints.maxHeight,
+                                );
+
+                                final settingsChanged = _lastSettings == null ||
+                                    _lastSettings!.fontSize != settings.fontSize ||
+                                    _lastSettings!.lineHeight != settings.lineHeight ||
+                                    _lastSettings!.horizontalPadding !=
+                                        settings.horizontalPadding ||
+                                    _lastSettings!.readerTheme != settings.readerTheme;
+
+                                if (_lastPageSize != pageSize || settingsChanged) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (!mounted) return;
+                                    setState(() {
+                                      _paginate(pageSize, settings);
+                                      if (_pageController.hasClients &&
+                                          _pageController.page?.round() != _pageIndex) {
+                                        _pageController.jumpToPage(_pageIndex);
+                                      }
+                                    });
+                                  });
+                                }
+
+                                if (_pages.isEmpty) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+
+                                return PageView.builder(
+                                  controller: _pageController,
+                                  itemCount: _pages.length,
+                                  onPageChanged: (index) {
+                                    setState(() => _pageIndex = index);
+                                    _saveProgress();
+                                    if (index == _pages.length - 1) {
+                                      context
+                                          .read<AppState>()
+                                          .recordReadingSession(minutes: 5);
+                                    }
+                                  },
+                                  itemBuilder: (_, index) {
+                                    return Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: settings.horizontalPadding,
+                                      ),
+                                      child: SingleChildScrollView(
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        child: Text(
+                                          _pages[index],
+                                          style: TextStyle(
+                                            fontSize: settings.fontSize,
+                                            height: settings.lineHeight,
+                                            color: readerTheme.text,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
                             ),
                           ),
                           _buildNav(readerTheme),
@@ -184,131 +310,34 @@ class _ReaderScreenState extends State<ReaderScreen> {
       decoration: BoxDecoration(
         color: readerTheme.background,
         border: Border(
-          top: BorderSide(color: readerTheme.text.withValues(alpha: 0.15)),
+          top: BorderSide(color: readerTheme.accent.withValues(alpha: 0.2)),
         ),
       ),
       child: Row(
         children: [
           IconButton(
-            onPressed: _chapterIndex > 0
-                ? () {
-                    setState(() => _chapterIndex--);
-                    _saveProgress();
-                  }
-                : null,
-            icon: Icon(Icons.chevron_left_rounded, color: readerTheme.text, size: 36),
+            onPressed: _pageIndex > 0 ? () => _goToPage(_pageIndex - 1) : null,
+            icon: Icon(Icons.chevron_left_rounded, color: readerTheme.accent, size: 36),
           ),
           Expanded(
-            child: Slider(
-              value: _chapterIndex.toDouble(),
-              min: 0,
-              max: (_data!.chapters.length - 1).toDouble(),
-              divisions: _data!.chapters.length > 1 ? _data!.chapters.length - 1 : 1,
-              activeColor: readerTheme.accent,
-              inactiveColor: readerTheme.text.withValues(alpha: 0.2),
-              onChanged: (v) {
-                setState(() => _chapterIndex = v.round());
-                _saveProgress();
-              },
-            ),
+            child: _pages.length > 1
+                ? Slider(
+                    value: _pageIndex.toDouble(),
+                    min: 0,
+                    max: (_pages.length - 1).toDouble(),
+                    divisions: _pages.length - 1,
+                    activeColor: readerTheme.accent,
+                    inactiveColor: readerTheme.accent.withValues(alpha: 0.25),
+                    onChanged: (v) => _goToPage(v.round()),
+                  )
+                : const SizedBox.shrink(),
           ),
           IconButton(
-            onPressed: _chapterIndex < _data!.chapters.length - 1
-                ? () {
-                    setState(() => _chapterIndex++);
-                    _saveProgress();
-                    if (_chapterIndex == _data!.chapters.length - 1) {
-                      context.read<AppState>().recordReadingSession(minutes: 5);
-                    }
-                  }
+            onPressed: _pageIndex < _pages.length - 1
+                ? () => _goToPage(_pageIndex + 1)
                 : null,
-            icon: Icon(Icons.chevron_right_rounded, color: readerTheme.text, size: 36),
+            icon: Icon(Icons.chevron_right_rounded, color: readerTheme.accent, size: 36),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChapterView extends StatelessWidget {
-  const _ChapterView({
-    required this.html,
-    required this.settings,
-    required this.readerTheme,
-  });
-
-  final String html;
-  final ReaderSettings settings;
-  final ReaderTheme readerTheme;
-
-  @override
-  Widget build(BuildContext context) {
-    final plain = HtmlUtils.stripTags(html);
-
-    if (plain.length < 30) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'В этой главе нет текста. Перейдите к следующей.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: readerTheme.text, fontSize: settings.fontSize),
-          ),
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        settings.horizontalPadding,
-        0,
-        settings.horizontalPadding,
-        24,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Html(
-            data: html,
-            style: {
-              'html': Style(
-                margin: Margins.zero,
-                padding: HtmlPaddings.zero,
-              ),
-              'body': Style(
-                margin: Margins.zero,
-                padding: HtmlPaddings.zero,
-                fontSize: FontSize(settings.fontSize),
-                lineHeight: LineHeight(settings.lineHeight),
-                color: readerTheme.text,
-              ),
-              'p': Style(
-                margin: Margins.only(bottom: 14),
-                color: readerTheme.text,
-              ),
-              'div': Style(color: readerTheme.text),
-              'span': Style(color: readerTheme.text),
-              'li': Style(color: readerTheme.text),
-              'h1': Style(
-                color: readerTheme.accent,
-                fontWeight: FontWeight.w800,
-                fontSize: FontSize(settings.fontSize + 6),
-              ),
-              'h2': Style(
-                color: readerTheme.accent,
-                fontWeight: FontWeight.w700,
-                fontSize: FontSize(settings.fontSize + 4),
-              ),
-              'h3': Style(
-                color: readerTheme.accent,
-                fontWeight: FontWeight.w600,
-                fontSize: FontSize(settings.fontSize + 2),
-              ),
-              'a': Style(color: readerTheme.accent),
-            },
-          ),
-          if (plain.length > 40)
-            const SizedBox(height: 8),
         ],
       ),
     );

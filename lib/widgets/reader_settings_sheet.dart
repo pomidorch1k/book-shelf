@@ -87,7 +87,7 @@ class ReaderSettingsSheet extends StatelessWidget {
               ),
               ButtonSegment(
                 value: ReaderThemePreset.sepia,
-                label: Text('Сепия'),
+                label: Text('Тёплая'),
                 icon: Icon(Icons.auto_stories_outlined),
               ),
               ButtonSegment(

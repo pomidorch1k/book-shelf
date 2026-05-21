@@ -184,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _readerPresetLabel(ReaderThemePreset preset) {
     return switch (preset) {
       ReaderThemePreset.dark => 'Тёмная',
-      ReaderThemePreset.sepia => 'Сепия',
+      ReaderThemePreset.sepia => 'Тёплая',
       ReaderThemePreset.light => 'Светлая',
     };
   }

@@ -150,14 +150,14 @@ class AppTheme {
         );
       case ReaderThemePreset.sepia:
         return const ReaderTheme(
-          background: AppColors.sepiaBg,
-          text: AppColors.sepiaText,
+          background: AppColors.white,
+          text: Color(0xFF4A3728),
           accent: AppColors.burntSienna,
         );
       case ReaderThemePreset.light:
         return const ReaderTheme(
-          background: Color(0xFFF8FCFD),
-          text: AppColors.burntSiennaDark,
+          background: AppColors.white,
+          text: Color(0xFF2D2D2D),
           accent: AppColors.burntSienna,
         );
     }
