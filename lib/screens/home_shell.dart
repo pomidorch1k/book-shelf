@@ -37,8 +37,8 @@ class _HomeShellState extends State<HomeShell> {
             label: 'Полка',
           ),
           NavigationDestination(
-            icon: Icon(Icons.queue_music_outlined),
-            selectedIcon: Icon(Icons.queue_music),
+            icon: Icon(Icons.collections_bookmark_outlined),
+            selectedIcon: Icon(Icons.collections_bookmark),
             label: 'Плейлисты',
           ),
           NavigationDestination(

@@ -8,6 +8,7 @@ import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../services/epub_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/reader_settings_sheet.dart';
 
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({super.key, required this.book});
@@ -70,10 +71,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
         );
   }
 
+  void _openReaderSettings() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => ReaderSettingsSheet(onChanged: () {
+        if (mounted) setState(() {});
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<AppState>().isDark;
-    final readerTheme = AppTheme.readerTheme(isDark);
+    final state = context.watch<AppState>();
+    final settings = state.readerSettings;
+    final readerTheme = AppTheme.readerTheme(settings, state.isDark);
 
     return PopScope(
       onPopInvokedWithResult: (_, __) => _saveProgress(),
@@ -82,14 +97,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
         appBar: AppBar(
           backgroundColor: readerTheme.background,
           foregroundColor: readerTheme.text,
+          elevation: 0,
+          scrolledUnderElevation: 0,
           title: Text(
             widget.book.title,
             style: TextStyle(color: readerTheme.text, fontSize: 16),
           ),
           actions: [
             IconButton(
-              icon: Icon(Icons.brightness_6_outlined, color: readerTheme.text),
-              onPressed: () => context.read<AppState>().toggleTheme(),
+              icon: Icon(Icons.tune_rounded, color: readerTheme.text),
+              tooltip: 'Настройки читалки',
+              onPressed: _openReaderSettings,
             ),
           ],
         ),
@@ -97,7 +115,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ? Center(child: CircularProgressIndicator(color: readerTheme.accent))
             : _data == null
                 ? Center(
-                    child: Text('Ошибка загрузки книги', style: TextStyle(color: readerTheme.text)),
+                    child: Text(
+                      'Ошибка загрузки книги',
+                      style: TextStyle(color: readerTheme.text),
+                    ),
                   )
                 : Column(
                     children: [
@@ -118,32 +139,56 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             ),
                             Text(
                               '${_chapterIndex + 1}/${_data!.chapters.length}',
-                              style: TextStyle(color: readerTheme.text.withValues(alpha: 0.7)),
+                              style: TextStyle(
+                                color: readerTheme.text.withValues(alpha: 0.7),
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Expanded(
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                          padding: EdgeInsets.fromLTRB(
+                            settings.horizontalPadding,
+                            0,
+                            settings.horizontalPadding,
+                            24,
+                          ),
                           child: Html(
                             data: _data!.chapters[_chapterIndex].html,
                             style: {
+                              'html': Style(
+                                margin: Margins.zero,
+                                padding: HtmlPaddings.zero,
+                              ),
                               'body': Style(
                                 margin: Margins.zero,
                                 padding: HtmlPaddings.zero,
-                                fontSize: FontSize(18),
-                                lineHeight: const LineHeight(1.65),
+                                fontSize: FontSize(settings.fontSize),
+                                lineHeight: LineHeight(settings.lineHeight),
                                 color: readerTheme.text,
                               ),
-                              'p': Style(margin: Margins.only(bottom: 14)),
+                              'p': Style(
+                                margin: Margins.only(bottom: 14),
+                                color: readerTheme.text,
+                              ),
+                              'div': Style(color: readerTheme.text),
+                              'span': Style(color: readerTheme.text),
+                              'li': Style(color: readerTheme.text),
                               'h1': Style(
                                 color: readerTheme.accent,
                                 fontWeight: FontWeight.w800,
+                                fontSize: FontSize(settings.fontSize + 6),
                               ),
                               'h2': Style(
                                 color: readerTheme.accent,
                                 fontWeight: FontWeight.w700,
+                                fontSize: FontSize(settings.fontSize + 4),
+                              ),
+                              'h3': Style(
+                                color: readerTheme.accent,
+                                fontWeight: FontWeight.w600,
+                                fontSize: FontSize(settings.fontSize + 2),
                               ),
                               'a': Style(color: readerTheme.accent),
                             },

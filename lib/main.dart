@@ -60,7 +60,7 @@ class _Splash extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.auto_stories_rounded, size: 64, color: AppColors.midnightBlue),
+            Icon(Icons.auto_stories_rounded, size: 64, color: AppColors.burntSienna),
             SizedBox(height: 16),
             CircularProgressIndicator(),
           ],

@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/reader_settings.dart';
+
 class AppColors {
-  static const midnightBlue = Color(0xFF191970);
-  static const peach = Color(0xFFFFE5B4);
-  static const midnightBlueLight = Color(0xFF2A2A9E);
-  static const peachDark = Color(0xFFE8C990);
+  static const burntSienna = Color(0xFFE97451);
+  static const powderBlue = Color(0xFFB0E0E6);
+  static const burntSiennaDark = Color(0xFFC45F3A);
+  static const powderBlueDark = Color(0xFF8FC4CC);
   static const white = Color(0xFFFFFFFF);
-  static const darkBg = Color(0xFF0D0D2B);
-  static const darkSurface = Color(0xFF151540);
+  static const darkBg = Color(0xFF1E1410);
+  static const darkSurface = Color(0xFF2D221C);
+  static const sepiaBg = Color(0xFFF5E6D3);
+  static const sepiaText = Color(0xFF4A3728);
 }
 
 class AppTheme {
@@ -17,33 +21,33 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: const ColorScheme.light(
-        primary: AppColors.midnightBlue,
-        onPrimary: AppColors.peach,
-        secondary: AppColors.peach,
-        onSecondary: AppColors.midnightBlue,
+        primary: AppColors.burntSienna,
+        onPrimary: AppColors.white,
+        secondary: AppColors.powderBlue,
+        onSecondary: AppColors.burntSienna,
         surface: AppColors.white,
-        onSurface: AppColors.midnightBlue,
-        tertiary: AppColors.midnightBlueLight,
+        onSurface: AppColors.burntSiennaDark,
+        tertiary: AppColors.burntSiennaDark,
       ),
-      scaffoldBackgroundColor: AppColors.peach.withValues(alpha: 0.35),
+      scaffoldBackgroundColor: AppColors.powderBlue.withValues(alpha: 0.45),
       cardColor: AppColors.white,
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.midnightBlue,
-        foregroundColor: AppColors.peach,
+        backgroundColor: AppColors.burntSienna,
+        foregroundColor: AppColors.white,
         elevation: 0,
         centerTitle: true,
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.midnightBlue,
-        foregroundColor: AppColors.peach,
+        backgroundColor: AppColors.burntSienna,
+        foregroundColor: AppColors.white,
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.white,
-        indicatorColor: AppColors.peach,
+        indicatorColor: AppColors.powderBlue,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
-            color: selected ? AppColors.midnightBlue : AppColors.midnightBlue.withValues(alpha: 0.6),
+            color: selected ? AppColors.burntSienna : AppColors.burntSienna.withValues(alpha: 0.55),
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
           );
         }),
@@ -54,13 +58,13 @@ class AppTheme {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.midnightBlue, width: 2),
+          borderSide: const BorderSide(color: AppColors.burntSienna, width: 2),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.midnightBlue,
-          foregroundColor: AppColors.peach,
+          backgroundColor: AppColors.burntSienna,
+          foregroundColor: AppColors.white,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
@@ -68,8 +72,8 @@ class AppTheme {
     );
     return base.copyWith(
       textTheme: GoogleFonts.nunitoTextTheme(base.textTheme).apply(
-        bodyColor: AppColors.midnightBlue,
-        displayColor: AppColors.midnightBlue,
+        bodyColor: AppColors.burntSiennaDark,
+        displayColor: AppColors.burntSiennaDark,
       ),
     );
   }
@@ -79,33 +83,33 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.peach,
-        onPrimary: AppColors.midnightBlue,
-        secondary: AppColors.midnightBlueLight,
-        onSecondary: AppColors.peach,
+        primary: AppColors.powderBlue,
+        onPrimary: AppColors.darkBg,
+        secondary: AppColors.burntSienna,
+        onSecondary: AppColors.powderBlue,
         surface: AppColors.darkSurface,
-        onSurface: AppColors.peach,
-        tertiary: AppColors.peachDark,
+        onSurface: AppColors.powderBlue,
+        tertiary: AppColors.burntSienna,
       ),
       scaffoldBackgroundColor: AppColors.darkBg,
       cardColor: AppColors.darkSurface,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.darkSurface,
-        foregroundColor: AppColors.peach,
+        foregroundColor: AppColors.powderBlue,
         elevation: 0,
         centerTitle: true,
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.peach,
-        foregroundColor: AppColors.midnightBlue,
+        backgroundColor: AppColors.burntSienna,
+        foregroundColor: AppColors.white,
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.darkSurface,
-        indicatorColor: AppColors.midnightBlue,
+        indicatorColor: AppColors.burntSienna,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
-            color: selected ? AppColors.peach : AppColors.peach.withValues(alpha: 0.6),
+            color: selected ? AppColors.powderBlue : AppColors.powderBlue.withValues(alpha: 0.6),
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
           );
         }),
@@ -116,13 +120,13 @@ class AppTheme {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.peach, width: 2),
+          borderSide: const BorderSide(color: AppColors.powderBlue, width: 2),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.peach,
-          foregroundColor: AppColors.midnightBlue,
+          backgroundColor: AppColors.burntSienna,
+          foregroundColor: AppColors.white,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
@@ -130,24 +134,33 @@ class AppTheme {
     );
     return base.copyWith(
       textTheme: GoogleFonts.nunitoTextTheme(base.textTheme).apply(
-        bodyColor: AppColors.peach,
-        displayColor: AppColors.peach,
+        bodyColor: AppColors.powderBlue,
+        displayColor: AppColors.powderBlue,
       ),
     );
   }
 
-  static ReaderTheme readerTheme(bool isDark) {
-    return isDark
-        ? const ReaderTheme(
-            background: AppColors.darkBg,
-            text: AppColors.peach,
-            accent: AppColors.midnightBlueLight,
-          )
-        : const ReaderTheme(
-            background: Color(0xFFFFF8E8),
-            text: AppColors.midnightBlue,
-            accent: AppColors.midnightBlue,
-          );
+  static ReaderTheme readerTheme(ReaderSettings settings, bool appIsDark) {
+    switch (settings.readerTheme) {
+      case ReaderThemePreset.dark:
+        return const ReaderTheme(
+          background: AppColors.darkBg,
+          text: AppColors.powderBlue,
+          accent: AppColors.burntSienna,
+        );
+      case ReaderThemePreset.sepia:
+        return const ReaderTheme(
+          background: AppColors.sepiaBg,
+          text: AppColors.sepiaText,
+          accent: AppColors.burntSienna,
+        );
+      case ReaderThemePreset.light:
+        return const ReaderTheme(
+          background: Color(0xFFF8FCFD),
+          text: AppColors.burntSiennaDark,
+          accent: AppColors.burntSienna,
+        );
+    }
   }
 }
 

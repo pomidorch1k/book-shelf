@@ -57,9 +57,16 @@ class PlaylistsScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('🎧', style: TextStyle(fontSize: 64)),
-                  const SizedBox(height: 12),
-                  Text('Создайте первый плейлист', style: Theme.of(context).textTheme.titleLarge),
+                  Icon(
+                    Icons.collections_bookmark_outlined,
+                    size: 72,
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.45),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Создайте первый плейлист',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ],
               ),
             )
@@ -74,7 +81,7 @@ class PlaylistsScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   child: ExpansionTile(
                     leading: CircleAvatar(
-                      backgroundColor: AppColors.peach,
+                      backgroundColor: AppColors.powderBlue,
                       child: Text(playlist.emoji, style: const TextStyle(fontSize: 22)),
                     ),
                     title: Text(playlist.name, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -104,6 +111,7 @@ class PlaylistsScreen extends StatelessWidget {
                         : books
                             .map(
                               (book) => ListTile(
+                                leading: const Icon(Icons.menu_book_outlined),
                                 title: Text(book.title),
                                 subtitle: Text(book.author),
                                 onTap: () {
@@ -123,7 +131,7 @@ class PlaylistsScreen extends StatelessWidget {
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _createPlaylist(context),
-        child: const Icon(Icons.playlist_add),
+        child: const Icon(Icons.create_new_folder_outlined),
       ),
     );
   }
@@ -149,8 +157,10 @@ class PlaylistsScreen extends StatelessWidget {
                 return Column(
                   children: [
                     const SizedBox(height: 12),
-                    Text('Книги в «${playlist.name}»',
-                        style: Theme.of(ctx).textTheme.titleLarge),
+                    Text(
+                      'Книги в «${playlist.name}»',
+                      style: Theme.of(ctx).textTheme.titleLarge,
+                    ),
                     Expanded(
                       child: ListView.builder(
                         controller: scrollController,

@@ -14,8 +14,8 @@
 
 ## Цвета
 
-- Midnight Blue `#191970`
-- Peach `#FFE5B4`
+- Burnt Sienna `#E97451`
+- Powder Blue `#B0E0E6`
 
 ## Сборка APK (рекомендуется — через GitHub)
 

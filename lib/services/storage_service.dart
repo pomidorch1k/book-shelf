@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
+import '../models/reader_settings.dart';
 
 class StorageService {
   static const _usersKey = 'bs_users';
@@ -12,6 +13,7 @@ class StorageService {
   static const _booksPrefix = 'bs_books_';
   static const _playlistsPrefix = 'bs_playlists_';
   static const _streakPrefix = 'bs_streak_';
+  static const _readerSettingsPrefix = 'bs_reader_';
 
   Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
 
@@ -121,6 +123,21 @@ class StorageService {
     await prefs.setString(
       '$_streakPrefix$userId',
       jsonEncode(streak.toJson()),
+    );
+  }
+
+  Future<ReaderSettings> getReaderSettings(String userId) async {
+    final prefs = await _prefs;
+    final raw = prefs.getString('$_readerSettingsPrefix$userId');
+    if (raw == null) return ReaderSettings();
+    return ReaderSettings.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+  }
+
+  Future<void> saveReaderSettings(String userId, ReaderSettings settings) async {
+    final prefs = await _prefs;
+    await prefs.setString(
+      '$_readerSettingsPrefix$userId',
+      jsonEncode(settings.toJson()),
     );
   }
 }

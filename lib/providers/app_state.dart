@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/models.dart';
+import '../models/reader_settings.dart';
 import '../services/epub_service.dart';
 import '../services/storage_service.dart';
 
@@ -20,6 +21,7 @@ class AppState extends ChangeNotifier {
   List<BookItem> _books = [];
   List<Playlist> _playlists = [];
   ReadingStreak _streak = ReadingStreak();
+  ReaderSettings _readerSettings = ReaderSettings();
   String? _authError;
 
   bool get loading => _loading;
@@ -28,6 +30,7 @@ class AppState extends ChangeNotifier {
   List<BookItem> get books => List.unmodifiable(_books);
   List<Playlist> get playlists => List.unmodifiable(_playlists);
   ReadingStreak get streak => _streak;
+  ReaderSettings get readerSettings => _readerSettings;
   String? get authError => _authError;
   bool get isLoggedIn => _user != null;
 
@@ -53,6 +56,15 @@ class AppState extends ChangeNotifier {
     _books = await _storage.getBooks(_user!.id);
     _playlists = await _storage.getPlaylists(_user!.id);
     _streak = await _storage.getStreak(_user!.id);
+    _readerSettings = await _storage.getReaderSettings(_user!.id);
+  }
+
+  Future<void> updateReaderSettings(ReaderSettings settings) async {
+    _readerSettings = settings;
+    if (_user != null) {
+      await _storage.saveReaderSettings(_user!.id, _readerSettings);
+    }
+    notifyListeners();
   }
 
   Future<void> toggleTheme() async {

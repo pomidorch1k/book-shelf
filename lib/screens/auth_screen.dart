@@ -51,26 +51,26 @@ class _AuthScreenState extends State<AuthScreen>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppColors.midnightBlue, AppColors.midnightBlueLight],
+            colors: [AppColors.burntSienna, AppColors.burntSiennaDark],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
               const SizedBox(height: 32),
-              const Icon(Icons.auto_stories_rounded, size: 72, color: AppColors.peach),
+              const Icon(Icons.auto_stories_rounded, size: 72, color: AppColors.white),
               const SizedBox(height: 12),
               Text(
                 'Книжная полка',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: AppColors.peach,
+                      color: AppColors.white,
                       fontWeight: FontWeight.w800,
                     ),
               ),
               const SizedBox(height: 6),
               const Text(
                 'Читай с удовольствием каждый день',
-                style: TextStyle(color: AppColors.peach, fontSize: 14),
+                style: TextStyle(color: AppColors.powderBlue, fontSize: 14),
               ),
               const SizedBox(height: 24),
               Expanded(
@@ -84,9 +84,9 @@ class _AuthScreenState extends State<AuthScreen>
                     children: [
                       TabBar(
                         controller: _tabs,
-                        labelColor: AppColors.midnightBlue,
-                        unselectedLabelColor: AppColors.midnightBlue.withValues(alpha: 0.5),
-                        indicatorColor: AppColors.midnightBlue,
+                        labelColor: AppColors.burntSienna,
+                        unselectedLabelColor: AppColors.burntSienna.withValues(alpha: 0.5),
+                        indicatorColor: AppColors.burntSienna,
                         tabs: const [
                           Tab(text: 'Вход'),
                           Tab(text: 'Регистрация'),

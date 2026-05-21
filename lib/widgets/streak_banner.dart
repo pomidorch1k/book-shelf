@@ -17,13 +17,13 @@ class StreakBanner extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          colors: [AppColors.midnightBlue, AppColors.midnightBlueLight],
+          colors: [AppColors.burntSienna, AppColors.burntSiennaDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.midnightBlue.withValues(alpha: 0.35),
+            color: AppColors.burntSienna.withValues(alpha: 0.35),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -39,7 +39,7 @@ class StreakBanner extends StatelessWidget {
               Text(
                 '${streak.currentStreak} дней подряд',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.peach,
+                      color: AppColors.white,
                       fontWeight: FontWeight.w800,
                     ),
               ),
@@ -47,12 +47,12 @@ class StreakBanner extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.peach.withValues(alpha: 0.2),
+                  color: AppColors.powderBlue.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   'рекорд: ${streak.longestStreak}',
-                  style: const TextStyle(color: AppColors.peach, fontSize: 12),
+                  style: const TextStyle(color: AppColors.white, fontSize: 12),
                 ),
               ),
             ],
@@ -60,7 +60,7 @@ class StreakBanner extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'Сегодня: ${streak.todayMinutes} / ${streak.goalMinutes} мин',
-            style: const TextStyle(color: AppColors.peach, fontSize: 14),
+            style: const TextStyle(color: AppColors.white, fontSize: 14),
           ),
           const SizedBox(height: 8),
           ClipRRect(
@@ -68,8 +68,8 @@ class StreakBanner extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 10,
-              color: AppColors.peach,
-              backgroundColor: AppColors.peach.withValues(alpha: 0.25),
+              color: AppColors.powderBlue,
+              backgroundColor: AppColors.powderBlue.withValues(alpha: 0.25),
             ),
           ),
         ],

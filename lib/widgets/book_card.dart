@@ -37,11 +37,11 @@ class BookCard extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: isDark
-                        ? [AppColors.midnightBlueLight, AppColors.midnightBlue]
-                        : [AppColors.midnightBlue, AppColors.midnightBlueLight],
+                        ? [AppColors.burntSiennaDark, AppColors.burntSienna]
+                        : [AppColors.burntSienna, AppColors.burntSiennaDark],
                   ),
                 ),
-                child: const Icon(Icons.menu_book_rounded, color: AppColors.peach, size: 32),
+                child: const Icon(Icons.menu_book_rounded, color: AppColors.white, size: 32),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -70,8 +70,9 @@ class BookCard extends StatelessWidget {
                         value: book.progress,
                         minHeight: 6,
                         backgroundColor: isDark
-                            ? AppColors.midnightBlue
-                            : AppColors.peach.withValues(alpha: 0.5),
+                            ? AppColors.burntSiennaDark
+                            : AppColors.powderBlue.withValues(alpha: 0.5),
+                        color: AppColors.burntSienna,
                       ),
                     ),
                   ],
