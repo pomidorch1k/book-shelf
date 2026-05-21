@@ -13,7 +13,7 @@ class LibraryScreen extends StatelessWidget {
   Future<void> _importBook(BuildContext context) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['epub'],
+      allowedExtensions: ['epub', 'fb2', 'zip', 'mobi', 'azw', 'azw3'],
     );
     if (result == null || result.files.single.path == null) return;
 
@@ -30,7 +30,9 @@ class LibraryScreen extends StatelessWidget {
 
     if (book == null) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Не удалось открыть EPUB файл')),
+        const SnackBar(
+          content: Text('Не удалось открыть файл. Поддерживаются EPUB, FB2, MOBI'),
+        ),
       );
     } else {
       messenger.showSnackBar(
@@ -73,7 +75,7 @@ class LibraryScreen extends StatelessWidget {
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 40),
                   child: Text(
-                    'Нажмите + чтобы добавить EPUB с телефона',
+                    'Нажмите + чтобы добавить EPUB, FB2 или MOBI',
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -125,7 +127,7 @@ class LibraryScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _importBook(context),
         icon: const Icon(Icons.add),
-        label: const Text('EPUB'),
+        label: const Text('Книга'),
       ),
     );
   }

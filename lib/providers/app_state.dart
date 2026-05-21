@@ -3,7 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/models.dart';
 import '../models/reader_settings.dart';
-import '../services/epub_service.dart';
+import '../services/book_loader_service.dart';
 import '../services/storage_service.dart';
 
 class AppState extends ChangeNotifier {
@@ -12,7 +12,7 @@ class AppState extends ChangeNotifier {
   }
 
   final _storage = StorageService();
-  final _epub = EpubService();
+  final _bookLoader = BookLoaderService();
   final _uuid = const Uuid();
 
   bool _loading = true;
@@ -180,15 +180,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<BookItem?> addBookFromPath(String filePath) async {
+  Future<BookItem?> addBookFromPath(String sourcePath) async {
     if (_user == null) return null;
     try {
-      final data = await _epub.loadBook(filePath);
+      final savedPath = await _bookLoader.persistImportedFile(sourcePath);
+      final data = await _bookLoader.loadBook(savedPath);
       final book = BookItem(
         id: _uuid.v4(),
         title: data.title,
         author: data.author,
-        filePath: filePath,
+        filePath: savedPath,
         addedAt: DateTime.now(),
       );
       _books.insert(0, book);
@@ -196,7 +197,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return book;
     } catch (e) {
-      debugPrint('EPUB load error: $e');
+      debugPrint('Book import error: $e');
       return null;
     }
   }
@@ -315,5 +316,5 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  EpubService get epubService => _epub;
+  BookLoaderService get bookLoader => _bookLoader;
 }

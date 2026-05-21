@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:provider/provider.dart';
 
+import '../models/book_content.dart';
 import '../models/models.dart';
+import '../models/reader_settings.dart';
 import '../providers/app_state.dart';
-import '../services/epub_service.dart';
+import '../services/parsers/html_utils.dart';
 import '../theme/app_theme.dart';
 import '../widgets/reader_settings_sheet.dart';
 
@@ -20,8 +22,9 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
-  EpubBookData? _data;
+  ParsedBook? _data;
   bool _loading = true;
+  String? _error;
   int _chapterIndex = 0;
   Timer? _readTimer;
 
@@ -46,18 +49,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Future<void> _load() async {
     final state = context.read<AppState>();
     try {
-      final data = await state.epubService.loadBook(widget.book.filePath);
+      final data = await state.bookLoader.loadBook(widget.book.filePath);
       if (mounted) {
         setState(() {
           _data = data;
           _loading = false;
+          _error = null;
           if (_chapterIndex >= data.chapters.length) {
             _chapterIndex = 0;
           }
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString();
+        });
+      }
     }
   }
 
@@ -113,91 +122,58 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ),
         body: _loading
             ? Center(child: CircularProgressIndicator(color: readerTheme.accent))
-            : _data == null
+            : _error != null
                 ? Center(
-                    child: Text(
-                      'Ошибка загрузки книги',
-                      style: TextStyle(color: readerTheme.text),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Ошибка: $_error',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: readerTheme.text),
+                      ),
                     ),
                   )
-                : Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _data!.chapters[_chapterIndex].title,
-                                style: TextStyle(
-                                  color: readerTheme.text,
-                                  fontWeight: FontWeight.w700,
+                : _data == null
+                    ? const SizedBox.shrink()
+                    : Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _data!.chapters[_chapterIndex].title,
+                                    style: TextStyle(
+                                      color: readerTheme.text,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                                Text(
+                                  '${_chapterIndex + 1}/${_data!.chapters.length}',
+                                  style: TextStyle(
+                                    color: readerTheme.text.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              '${_chapterIndex + 1}/${_data!.chapters.length}',
-                              style: TextStyle(
-                                color: readerTheme.text.withValues(alpha: 0.7),
-                              ),
+                          ),
+                          Expanded(
+                            child: _ChapterView(
+                              html: _data!.chapters[_chapterIndex].html,
+                              settings: settings,
+                              readerTheme: readerTheme,
                             ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.fromLTRB(
-                            settings.horizontalPadding,
-                            0,
-                            settings.horizontalPadding,
-                            24,
                           ),
-                          child: Html(
-                            data: _data!.chapters[_chapterIndex].html,
-                            style: {
-                              'html': Style(
-                                margin: Margins.zero,
-                                padding: HtmlPaddings.zero,
-                              ),
-                              'body': Style(
-                                margin: Margins.zero,
-                                padding: HtmlPaddings.zero,
-                                fontSize: FontSize(settings.fontSize),
-                                lineHeight: LineHeight(settings.lineHeight),
-                                color: readerTheme.text,
-                              ),
-                              'p': Style(
-                                margin: Margins.only(bottom: 14),
-                                color: readerTheme.text,
-                              ),
-                              'div': Style(color: readerTheme.text),
-                              'span': Style(color: readerTheme.text),
-                              'li': Style(color: readerTheme.text),
-                              'h1': Style(
-                                color: readerTheme.accent,
-                                fontWeight: FontWeight.w800,
-                                fontSize: FontSize(settings.fontSize + 6),
-                              ),
-                              'h2': Style(
-                                color: readerTheme.accent,
-                                fontWeight: FontWeight.w700,
-                                fontSize: FontSize(settings.fontSize + 4),
-                              ),
-                              'h3': Style(
-                                color: readerTheme.accent,
-                                fontWeight: FontWeight.w600,
-                                fontSize: FontSize(settings.fontSize + 2),
-                              ),
-                              'a': Style(color: readerTheme.accent),
-                            },
-                          ),
-                        ),
+                          _buildNav(readerTheme),
+                        ],
                       ),
-                      _buildNav(readerTheme),
-                    ],
-                  ),
       ),
     );
   }
@@ -248,6 +224,91 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 : null,
             icon: Icon(Icons.chevron_right_rounded, color: readerTheme.text, size: 36),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChapterView extends StatelessWidget {
+  const _ChapterView({
+    required this.html,
+    required this.settings,
+    required this.readerTheme,
+  });
+
+  final String html;
+  final ReaderSettings settings;
+  final ReaderTheme readerTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final plain = HtmlUtils.stripTags(html);
+
+    if (plain.length < 30) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'В этой главе нет текста. Перейдите к следующей.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: readerTheme.text, fontSize: settings.fontSize),
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        settings.horizontalPadding,
+        0,
+        settings.horizontalPadding,
+        24,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Html(
+            data: html,
+            style: {
+              'html': Style(
+                margin: Margins.zero,
+                padding: HtmlPaddings.zero,
+              ),
+              'body': Style(
+                margin: Margins.zero,
+                padding: HtmlPaddings.zero,
+                fontSize: FontSize(settings.fontSize),
+                lineHeight: LineHeight(settings.lineHeight),
+                color: readerTheme.text,
+              ),
+              'p': Style(
+                margin: Margins.only(bottom: 14),
+                color: readerTheme.text,
+              ),
+              'div': Style(color: readerTheme.text),
+              'span': Style(color: readerTheme.text),
+              'li': Style(color: readerTheme.text),
+              'h1': Style(
+                color: readerTheme.accent,
+                fontWeight: FontWeight.w800,
+                fontSize: FontSize(settings.fontSize + 6),
+              ),
+              'h2': Style(
+                color: readerTheme.accent,
+                fontWeight: FontWeight.w700,
+                fontSize: FontSize(settings.fontSize + 4),
+              ),
+              'h3': Style(
+                color: readerTheme.accent,
+                fontWeight: FontWeight.w600,
+                fontSize: FontSize(settings.fontSize + 2),
+              ),
+              'a': Style(color: readerTheme.accent),
+            },
+          ),
+          if (plain.length > 40)
+            const SizedBox(height: 8),
         ],
       ),
     );
