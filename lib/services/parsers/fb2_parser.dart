@@ -18,9 +18,21 @@ class Fb2Parser {
     final title = desc.bookTitle?.trim().isNotEmpty == true
         ? desc.bookTitle!.trim()
         : _fileName(filePath);
-    final author = desc.authors != null && desc.authors!.isNotEmpty
-        ? _formatAuthor(desc.authors!.first)
-        : 'Неизвестный автор';
+    var author = 'Неизвестный автор';
+    if (desc.authors != null && desc.authors!.isNotEmpty) {
+      final a = desc.authors!.first;
+      final parts = <String>[];
+      for (final field in [a.lastName, a.firstName, a.middleName]) {
+        if (field != null && field.trim().isNotEmpty) {
+          parts.add(field.trim());
+        }
+      }
+      if (parts.isNotEmpty) {
+        author = parts.join(' ');
+      } else if (a.nickname != null && a.nickname!.trim().isNotEmpty) {
+        author = a.nickname!.trim();
+      }
+    }
 
     final chapters = <BookChapter>[];
     final sections = book.body.sections;
@@ -93,19 +105,6 @@ class Fb2Parser {
       title: sectionTitle?.isNotEmpty == true ? sectionTitle! : title,
       html: HtmlUtils.wrapDocument(content),
     );
-  }
-
-  String _formatAuthor(FB2Author author) {
-    final parts = [
-      author.lastName,
-      author.firstName,
-      author.middleName,
-    ].where((p) => p != null && p!.trim().isNotEmpty).map((p) => p!.trim());
-
-    final name = parts.join(' ');
-    if (name.isNotEmpty) return name;
-    if (author.nickname?.trim().isNotEmpty == true) return author.nickname!.trim();
-    return 'Неизвестный автор';
   }
 
   Future<String> _resolveFb2Path(String filePath) async {
