@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/book_content.dart';
@@ -23,16 +24,24 @@ class ReaderScreen extends StatefulWidget {
 
 class _ReaderScreenState extends State<ReaderScreen> {
   ParsedBook? _data;
+  String? _fullText;
   bool _loading = true;
+  bool _paginating = false;
   String? _error;
   List<String> _pages = [];
   int _pageIndex = 0;
+  bool _immersive = false;
+
   Timer? _readTimer;
+  Timer? _saveDebounce;
+  Timer? _repaginateDebounce;
+
   late final PageController _pageController =
       PageController(initialPage: widget.book.lastChapterIndex);
 
-  Size? _lastPageSize;
-  ReaderSettings? _lastSettings;
+  Size? _cachedPageSize;
+  String? _paginationCacheKey;
+  TextStyle? _pageTextStyle;
 
   @override
   void initState() {
@@ -49,7 +58,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void dispose() {
     _readTimer?.cancel();
+    _saveDebounce?.cancel();
+    _repaginateDebounce?.cancel();
     _pageController.dispose();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -57,9 +69,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final state = context.read<AppState>();
     try {
       final data = await state.bookLoader.loadBook(widget.book.filePath);
+      final fullText = _buildFullText(data);
       if (mounted) {
         setState(() {
           _data = data;
+          _fullText = fullText;
           _loading = false;
           _error = null;
         });
@@ -89,44 +103,95 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return buffer.toString().trim();
   }
 
-  void _paginate(Size pageSize, ReaderSettings settings) {
-    if (_data == null) return;
+  String _paginationKey(Size pageSize, ReaderSettings settings) {
+    return '${pageSize.width.toInt()}x${pageSize.height.toInt()}_'
+        '${settings.fontSize}_${settings.lineHeight}_${settings.horizontalPadding}_'
+        '${settings.readerTheme.name}';
+  }
 
-    final textStyle = TextStyle(
-      fontSize: settings.fontSize,
-      height: settings.lineHeight,
-      color: AppTheme.readerTheme(settings, context.read<AppState>().isDark).text,
+  void _scheduleRepagination(Size pageSize, ReaderSettings settings) {
+    final key = _paginationKey(pageSize, settings);
+    if (_paginationCacheKey == key && _pages.isNotEmpty) return;
+    if (_fullText == null || _paginating) return;
+
+    _repaginateDebounce?.cancel();
+    _repaginateDebounce = Timer(const Duration(milliseconds: 120), () {
+      _runPagination(pageSize, settings, key);
+    });
+  }
+
+  Future<void> _runPagination(
+    Size pageSize,
+    ReaderSettings settings,
+    String key,
+  ) async {
+    if (_fullText == null || !mounted) return;
+
+    setState(() => _paginating = true);
+
+    final readerTheme = AppTheme.readerTheme(
+      settings,
+      context.read<AppState>().isDark,
     );
 
     final horizontal = settings.horizontalPadding * 2;
-    final verticalReserve = 8.0;
-
-    _pages = ReaderPaginator.paginate(
-      text: _buildFullText(_data!),
-      style: textStyle,
+    final request = PaginateRequest(
+      text: _fullText!,
+      fontSize: settings.fontSize,
+      lineHeight: settings.lineHeight,
       maxWidth: pageSize.width - horizontal,
-      maxHeight: pageSize.height - verticalReserve,
+      maxHeight: pageSize.height - 8,
     );
 
-    if (_pages.isEmpty) {
-      _pages = ['Текст книги не найден.'];
+    final pages = await ReaderPaginator.paginateAsync(request);
+
+    if (!mounted) return;
+
+    final safePages = pages.isEmpty ? ['Текст книги не найден.'] : pages;
+    var pageIndex = _pageIndex;
+    if (pageIndex >= safePages.length) pageIndex = safePages.length - 1;
+    if (pageIndex < 0) pageIndex = 0;
+
+    setState(() {
+      _pages = safePages;
+      _pageIndex = pageIndex;
+      _paginating = false;
+      _cachedPageSize = pageSize;
+      _paginationCacheKey = key;
+      _pageTextStyle = TextStyle(
+        fontSize: settings.fontSize,
+        height: settings.lineHeight,
+        color: readerTheme.text,
+      );
+    });
+
+    if (_pageController.hasClients && _pageController.page?.round() != pageIndex) {
+      _pageController.jumpToPage(pageIndex);
     }
-
-    final maxIndex = _pages.length - 1;
-    if (_pageIndex > maxIndex) _pageIndex = maxIndex;
-    if (_pageIndex < 0) _pageIndex = 0;
-
-    _lastPageSize = pageSize;
-    _lastSettings = settings.copyWith();
   }
 
   void _saveProgress() {
     if (_pages.isEmpty) return;
-    context.read<AppState>().updateBookProgress(
-          widget.book.id,
-          _pageIndex,
-          (_pageIndex + 1) / _pages.length,
-        );
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      context.read<AppState>().updateBookProgress(
+            widget.book.id,
+            _pageIndex,
+            (_pageIndex + 1) / _pages.length,
+          );
+    });
+  }
+
+  void _toggleImmersive() {
+    final next = !_immersive;
+    setState(() {
+      _immersive = next;
+      _paginationCacheKey = null;
+    });
+    SystemChrome.setEnabledSystemUIMode(
+      next ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
   }
 
   void _openReaderSettings() {
@@ -138,10 +203,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       ),
       builder: (_) => ReaderSettingsSheet(onChanged: () {
         if (mounted) {
-          setState(() {
-            _lastPageSize = null;
-            _lastSettings = null;
-          });
+          setState(() => _paginationCacheKey = null);
         }
       }),
     );
@@ -150,11 +212,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
   void _goToPage(int index) {
     if (index < 0 || index >= _pages.length) return;
     setState(() => _pageIndex = index);
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+      );
+    }
     _saveProgress();
   }
 
@@ -165,26 +229,32 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final readerTheme = AppTheme.readerTheme(settings, state.isDark);
 
     return PopScope(
-      onPopInvokedWithResult: (_, __) => _saveProgress(),
+      onPopInvokedWithResult: (_, __) {
+        _saveProgress();
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      },
       child: Scaffold(
         backgroundColor: readerTheme.background,
-        appBar: AppBar(
-          backgroundColor: readerTheme.background,
-          foregroundColor: readerTheme.text,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          title: Text(
-            widget.book.title,
-            style: TextStyle(color: readerTheme.text, fontSize: 16),
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.tune_rounded, color: readerTheme.accent),
-              tooltip: 'Настройки читалки',
-              onPressed: _openReaderSettings,
-            ),
-          ],
-        ),
+        extendBodyBehindAppBar: _immersive,
+        appBar: _immersive
+            ? null
+            : AppBar(
+                backgroundColor: readerTheme.background,
+                foregroundColor: readerTheme.text,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                title: Text(
+                  widget.book.title,
+                  style: TextStyle(color: readerTheme.text, fontSize: 16),
+                ),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.tune_rounded, color: readerTheme.accent),
+                    tooltip: 'Настройки читалки',
+                    onPressed: _openReaderSettings,
+                  ),
+                ],
+              ),
         body: _loading
             ? Center(child: CircularProgressIndicator(color: readerTheme.accent))
             : _error != null
@@ -202,32 +272,39 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     ? const SizedBox.shrink()
                     : Column(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 6,
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  'Страница',
-                                  style: TextStyle(
-                                    color: readerTheme.text.withValues(alpha: 0.7),
-                                    fontSize: 13,
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            child: _immersive
+                                ? const SizedBox.shrink()
+                                : Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 6,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          'Страница',
+                                          style: TextStyle(
+                                            color: readerTheme.text
+                                                .withValues(alpha: 0.7),
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Text(
+                                          _paginating || _pages.isEmpty
+                                              ? '...'
+                                              : '${_pageIndex + 1} / ${_pages.length}',
+                                          style: TextStyle(
+                                            color: readerTheme.accent,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  _pages.isEmpty
-                                      ? '...'
-                                      : '${_pageIndex + 1} / ${_pages.length}',
-                                  style: TextStyle(
-                                    color: readerTheme.accent,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
                           Expanded(
                             child: LayoutBuilder(
@@ -236,68 +313,89 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                   constraints.maxWidth,
                                   constraints.maxHeight,
                                 );
+                                _scheduleRepagination(pageSize, settings);
 
-                                final settingsChanged = _lastSettings == null ||
-                                    _lastSettings!.fontSize != settings.fontSize ||
-                                    _lastSettings!.lineHeight != settings.lineHeight ||
-                                    _lastSettings!.horizontalPadding !=
-                                        settings.horizontalPadding ||
-                                    _lastSettings!.readerTheme != settings.readerTheme;
-
-                                if (_lastPageSize != pageSize || settingsChanged) {
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    if (!mounted) return;
-                                    setState(() {
-                                      _paginate(pageSize, settings);
-                                      if (_pageController.hasClients &&
-                                          _pageController.page?.round() != _pageIndex) {
-                                        _pageController.jumpToPage(_pageIndex);
-                                      }
-                                    });
-                                  });
-                                }
-
-                                if (_pages.isEmpty) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-
-                                return PageView.builder(
-                                  controller: _pageController,
-                                  itemCount: _pages.length,
-                                  onPageChanged: (index) {
-                                    setState(() => _pageIndex = index);
-                                    _saveProgress();
-                                    if (index == _pages.length - 1) {
-                                      context
-                                          .read<AppState>()
-                                          .recordReadingSession(minutes: 5);
-                                    }
-                                  },
-                                  itemBuilder: (_, index) {
-                                    return Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: settings.horizontalPadding,
-                                      ),
-                                      child: SingleChildScrollView(
-                                        physics: const NeverScrollableScrollPhysics(),
-                                        child: Text(
-                                          _pages[index],
-                                          style: TextStyle(
-                                            fontSize: settings.fontSize,
-                                            height: settings.lineHeight,
-                                            color: readerTheme.text,
-                                          ),
+                                return Stack(
+                                  children: [
+                                    if (_paginating && _pages.isEmpty)
+                                      Center(
+                                        child: CircularProgressIndicator(
+                                          color: readerTheme.accent,
                                         ),
+                                      )
+                                    else if (_pages.isNotEmpty)
+                                      PageView.builder(
+                                        controller: _pageController,
+                                        itemCount: _pages.length,
+                                        allowImplicitScrolling: false,
+                                        onPageChanged: (index) {
+                                          setState(() => _pageIndex = index);
+                                          _saveProgress();
+                                        },
+                                        itemBuilder: (_, index) {
+                                          return RepaintBoundary(
+                                            child: Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal:
+                                                    settings.horizontalPadding,
+                                              ),
+                                              child: Text(
+                                                _pages[index],
+                                                style: _pageTextStyle ??
+                                                    TextStyle(
+                                                      fontSize: settings.fontSize,
+                                                      height: settings.lineHeight,
+                                                      color: readerTheme.text,
+                                                    ),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    );
-                                  },
+                                    Positioned.fill(
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 25,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.translucent,
+                                              onTap: _pageIndex > 0
+                                                  ? () => _goToPage(_pageIndex - 1)
+                                                  : null,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 50,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.translucent,
+                                              onTap: _toggleImmersive,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 25,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.translucent,
+                                              onTap: _pageIndex < _pages.length - 1
+                                                  ? () =>
+                                                      _goToPage(_pageIndex + 1)
+                                                  : null,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 );
                               },
                             ),
                           ),
-                          _buildNav(readerTheme),
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            child: _immersive
+                                ? const SizedBox.shrink()
+                                : _buildNav(readerTheme),
+                          ),
                         ],
                       ),
       ),
@@ -306,7 +404,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Widget _buildNav(ReaderTheme readerTheme) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+      padding: EdgeInsets.fromLTRB(12, 8, 12, 8 + MediaQuery.paddingOf(context).bottom),
       decoration: BoxDecoration(
         color: readerTheme.background,
         border: Border(
@@ -322,7 +420,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           Expanded(
             child: _pages.length > 1
                 ? Slider(
-                    value: _pageIndex.toDouble(),
+                    value: _pageIndex.clamp(0, _pages.length - 1).toDouble(),
                     min: 0,
                     max: (_pages.length - 1).toDouble(),
                     divisions: _pages.length - 1,
