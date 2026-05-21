@@ -81,14 +81,16 @@ class Fb2Parser {
     final bodyMatch = RegExp(r'<body>([\s\S]+)</body>').firstMatch(res);
     if (bodyMatch == null) return null;
 
-    final bodyInner = bodyMatch.group(1)!.trim();
-    final section = FB2Section(bodyInner);
-    final content = section.content?.trim() ?? bodyInner;
-
+    final content = bodyMatch.group(1)!.trim();
     if (!HtmlUtils.hasReadableText(content)) return null;
 
+    final sectionTitle = RegExp(r'<title>([\s\S]+?)</title>')
+        .firstMatch(content)
+        ?.group(1)
+        ?.trim();
+
     return BookChapter(
-      title: section.title?.trim().isNotEmpty == true ? section.title!.trim() : title,
+      title: sectionTitle?.isNotEmpty == true ? sectionTitle! : title,
       html: HtmlUtils.wrapDocument(content),
     );
   }
