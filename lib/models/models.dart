@@ -45,6 +45,10 @@ class BookItem {
     this.coverPath,
     this.progress = 0,
     this.lastChapterIndex = 0,
+    this.bookmarkChapterIndex,
+    this.bookmarkChapterTitle,
+    this.bookmarkScrollOffset = 0,
+    this.bookmarkAt,
     this.addedAt,
   });
 
@@ -55,7 +59,13 @@ class BookItem {
   String? coverPath;
   double progress;
   int lastChapterIndex;
+  int? bookmarkChapterIndex;
+  String? bookmarkChapterTitle;
+  double bookmarkScrollOffset;
+  DateTime? bookmarkAt;
   final DateTime? addedAt;
+
+  bool get hasBookmark => bookmarkChapterIndex != null;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -65,6 +75,10 @@ class BookItem {
         'coverPath': coverPath,
         'progress': progress,
         'lastChapterIndex': lastChapterIndex,
+        'bookmarkChapterIndex': bookmarkChapterIndex,
+        'bookmarkChapterTitle': bookmarkChapterTitle,
+        'bookmarkScrollOffset': bookmarkScrollOffset,
+        'bookmarkAt': bookmarkAt?.toIso8601String(),
         'addedAt': addedAt?.toIso8601String(),
       };
 
@@ -76,6 +90,12 @@ class BookItem {
         coverPath: json['coverPath'] as String?,
         progress: (json['progress'] as num?)?.toDouble() ?? 0,
         lastChapterIndex: json['lastChapterIndex'] as int? ?? 0,
+        bookmarkChapterIndex: json['bookmarkChapterIndex'] as int?,
+        bookmarkChapterTitle: json['bookmarkChapterTitle'] as String?,
+        bookmarkScrollOffset: (json['bookmarkScrollOffset'] as num?)?.toDouble() ?? 0,
+        bookmarkAt: json['bookmarkAt'] != null
+            ? DateTime.parse(json['bookmarkAt'] as String)
+            : null,
         addedAt: json['addedAt'] != null
             ? DateTime.parse(json['addedAt'] as String)
             : null,
@@ -88,19 +108,25 @@ class Playlist {
     required this.name,
     required this.bookIds,
     this.emoji = '📚',
+    this.coverPath,
     this.createdAt,
   });
 
   final String id;
   String name;
   String emoji;
+  String? coverPath;
   List<String> bookIds;
   final DateTime? createdAt;
+
+  bool get hasCover =>
+      coverPath != null && coverPath!.isNotEmpty;
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'emoji': emoji,
+        'coverPath': coverPath,
         'bookIds': bookIds,
         'createdAt': createdAt?.toIso8601String(),
       };
@@ -109,6 +135,7 @@ class Playlist {
         id: json['id'] as String,
         name: json['name'] as String,
         emoji: json['emoji'] as String? ?? '📚',
+        coverPath: json['coverPath'] as String?,
         bookIds: List<String>.from(json['bookIds'] as List? ?? []),
         createdAt: json['createdAt'] != null
             ? DateTime.parse(json['createdAt'] as String)

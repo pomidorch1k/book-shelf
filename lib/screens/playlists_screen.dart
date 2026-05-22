@@ -1,49 +1,102 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/playlist_avatar.dart';
 import 'reader_screen.dart';
 
 class PlaylistsScreen extends StatelessWidget {
   const PlaylistsScreen({super.key});
 
+  Future<String?> _pickCoverImage() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    return file?.path;
+  }
+
   Future<void> _createPlaylist(BuildContext context) async {
     final nameCtrl = TextEditingController();
-    final emojiCtrl = TextEditingController(text: '📚');
+    String? coverPath;
+
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Новый плейлист'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: emojiCtrl,
-              decoration: const InputDecoration(labelText: 'Эмодзи'),
-              maxLength: 2,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Новый плейлист'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    final path = await _pickCoverImage();
+                    if (path != null) {
+                      setDialogState(() => coverPath = path);
+                    }
+                  },
+                  child: CircleAvatar(
+                    radius: 40,
+                    backgroundColor: AppColors.powderBlue,
+                    backgroundImage: coverPath != null
+                        ? FileImage(File(coverPath!))
+                        : null,
+                    child: coverPath == null
+                        ? const Icon(
+                            Icons.add_photo_alternate_outlined,
+                            size: 36,
+                            color: AppColors.burntSienna,
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Нажмите, чтобы выбрать обложку',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Название'),
+                  autofocus: true,
+                ),
+              ],
             ),
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Название'),
-              autofocus: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Создать')),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Отмена'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Создать'),
+              ),
+            ],
+          );
+        },
       ),
     );
+
     if (ok == true && nameCtrl.text.trim().isNotEmpty && context.mounted) {
       await context.read<AppState>().createPlaylist(
             nameCtrl.text.trim(),
-            emoji: emojiCtrl.text.trim().isEmpty ? '📚' : emojiCtrl.text.trim(),
+            coverPath: coverPath,
           );
     }
     nameCtrl.dispose();
-    emojiCtrl.dispose();
+  }
+
+  Future<void> _changePlaylistCover(BuildContext context, String playlistId) async {
+    final path = await _pickCoverImage();
+    if (path != null && context.mounted) {
+      await context.read<AppState>().updatePlaylistCover(playlistId, path);
+    }
   }
 
   @override
@@ -75,16 +128,17 @@ class PlaylistsScreen extends StatelessWidget {
               itemCount: state.playlists.length,
               itemBuilder: (context, index) {
                 final playlist = state.playlists[index];
-                final books = state.books.where((b) => playlist.bookIds.contains(b.id)).toList();
+                final books =
+                    state.books.where((b) => playlist.bookIds.contains(b.id)).toList();
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   child: ExpansionTile(
-                    leading: CircleAvatar(
-                      backgroundColor: AppColors.powderBlue,
-                      child: Text(playlist.emoji, style: const TextStyle(fontSize: 22)),
+                    leading: PlaylistAvatar(playlist: playlist),
+                    title: Text(
+                      playlist.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    title: Text(playlist.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: Text('${books.length} книг'),
                     trailing: PopupMenuButton<String>(
                       onSelected: (v) async {
@@ -94,11 +148,30 @@ class PlaylistsScreen extends StatelessWidget {
                           if (context.mounted) {
                             await _showAddBooksDialog(context, playlist.id);
                           }
+                        } else if (v == 'cover') {
+                          await _changePlaylistCover(context, playlist.id);
+                        } else if (v == 'remove_cover') {
+                          await state.updatePlaylistCover(playlist.id, null);
                         }
                       },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'add', child: Text('Добавить книги')),
-                        PopupMenuItem(value: 'delete', child: Text('Удалить')),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'add',
+                          child: Text('Добавить книги'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'cover',
+                          child: Text('Сменить обложку'),
+                        ),
+                        if (playlist.hasCover)
+                          const PopupMenuItem(
+                            value: 'remove_cover',
+                            child: Text('Убрать обложку'),
+                          ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Удалить'),
+                        ),
                       ],
                     ),
                     children: books.isEmpty
@@ -114,6 +187,13 @@ class PlaylistsScreen extends StatelessWidget {
                                 leading: const Icon(Icons.menu_book_outlined),
                                 title: Text(book.title),
                                 subtitle: Text(book.author),
+                                trailing: book.hasBookmark
+                                    ? Icon(
+                                        Icons.bookmark,
+                                        color: AppColors.burntSienna,
+                                        size: 20,
+                                      )
+                                    : null,
                                 onTap: () {
                                   Navigator.push(
                                     context,
@@ -172,6 +252,9 @@ class PlaylistsScreen extends StatelessWidget {
                             value: selected,
                             title: Text(book.title),
                             subtitle: Text(book.author),
+                            secondary: book.hasBookmark
+                                ? const Icon(Icons.bookmark, size: 20)
+                                : null,
                             onChanged: (_) async {
                               await state.toggleBookInPlaylist(playlistId, book.id);
                               setModalState(() {});

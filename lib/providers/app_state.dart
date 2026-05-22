@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/models.dart';
@@ -216,6 +220,62 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setBookmark({
+    required String bookId,
+    required int chapterIndex,
+    required String chapterTitle,
+    double scrollOffset = 0,
+  }) async {
+    if (_user == null) return;
+    final idx = _books.indexWhere((b) => b.id == bookId);
+    if (idx < 0) return;
+    _books[idx].bookmarkChapterIndex = chapterIndex;
+    _books[idx].bookmarkChapterTitle = chapterTitle;
+    _books[idx].bookmarkScrollOffset = scrollOffset;
+    _books[idx].bookmarkAt = DateTime.now();
+    await _storage.saveBooks(_user!.id, _books);
+    notifyListeners();
+  }
+
+  Future<void> clearBookmark(String bookId) async {
+    if (_user == null) return;
+    final idx = _books.indexWhere((b) => b.id == bookId);
+    if (idx < 0) return;
+    _books[idx].bookmarkChapterIndex = null;
+    _books[idx].bookmarkChapterTitle = null;
+    _books[idx].bookmarkScrollOffset = 0;
+    _books[idx].bookmarkAt = null;
+    await _storage.saveBooks(_user!.id, _books);
+    notifyListeners();
+  }
+
+  Future<String?> persistPlaylistCover(String sourcePath) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final coversDir = Directory(p.join(dir.path, 'playlist_covers'));
+    if (!await coversDir.exists()) {
+      await coversDir.create(recursive: true);
+    }
+    final ext = p.extension(sourcePath);
+    final dest = p.join(coversDir.path, '${_uuid.v4()}$ext');
+    await File(sourcePath).copy(dest);
+    return dest;
+  }
+
+  Future<void> updatePlaylistCover(String playlistId, String? sourcePath) async {
+    if (_user == null) return;
+    final idx = _playlists.indexWhere((p) => p.id == playlistId);
+    if (idx < 0) return;
+
+    if (sourcePath == null) {
+      _playlists[idx].coverPath = null;
+    } else {
+      _playlists[idx].coverPath = await persistPlaylistCover(sourcePath);
+    }
+
+    await _storage.savePlaylists(_user!.id, _playlists);
+    notifyListeners();
+  }
+
   Future<void> removeBook(String bookId) async {
     if (_user == null) return;
     _books.removeWhere((b) => b.id == bookId);
@@ -227,11 +287,20 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Playlist> createPlaylist(String name, {String emoji = '📚'}) async {
+  Future<Playlist> createPlaylist(
+    String name, {
+    String? coverPath,
+    String emoji = '📚',
+  }) async {
+    String? savedCover;
+    if (coverPath != null) {
+      savedCover = await persistPlaylistCover(coverPath);
+    }
     final playlist = Playlist(
       id: _uuid.v4(),
       name: name,
       emoji: emoji,
+      coverPath: savedCover,
       bookIds: [],
       createdAt: DateTime.now(),
     );
