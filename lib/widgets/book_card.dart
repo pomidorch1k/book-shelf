@@ -41,18 +41,7 @@ class BookCard extends StatelessWidget {
                         : [AppColors.burntSienna, AppColors.burntSiennaDark],
                   ),
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(Icons.menu_book_rounded, color: AppColors.white, size: 32),
-                    if (book.hasBookmark)
-                      const Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Icon(Icons.bookmark, color: AppColors.white, size: 18),
-                      ),
-                  ],
-                ),
+                child: const Icon(Icons.menu_book_rounded, color: AppColors.white, size: 32),
               ),
               const SizedBox(width: 14),
               Expanded(

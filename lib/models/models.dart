@@ -45,10 +45,6 @@ class BookItem {
     this.coverPath,
     this.progress = 0,
     this.lastChapterIndex = 0,
-    this.bookmarkChapterIndex,
-    this.bookmarkChapterTitle,
-    this.bookmarkScrollOffset = 0,
-    this.bookmarkAt,
     this.addedAt,
   });
 
@@ -59,13 +55,7 @@ class BookItem {
   String? coverPath;
   double progress;
   int lastChapterIndex;
-  int? bookmarkChapterIndex;
-  String? bookmarkChapterTitle;
-  double bookmarkScrollOffset;
-  DateTime? bookmarkAt;
   final DateTime? addedAt;
-
-  bool get hasBookmark => bookmarkChapterIndex != null;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -75,10 +65,6 @@ class BookItem {
         'coverPath': coverPath,
         'progress': progress,
         'lastChapterIndex': lastChapterIndex,
-        'bookmarkChapterIndex': bookmarkChapterIndex,
-        'bookmarkChapterTitle': bookmarkChapterTitle,
-        'bookmarkScrollOffset': bookmarkScrollOffset,
-        'bookmarkAt': bookmarkAt?.toIso8601String(),
         'addedAt': addedAt?.toIso8601String(),
       };
 
@@ -90,12 +76,6 @@ class BookItem {
         coverPath: json['coverPath'] as String?,
         progress: (json['progress'] as num?)?.toDouble() ?? 0,
         lastChapterIndex: json['lastChapterIndex'] as int? ?? 0,
-        bookmarkChapterIndex: json['bookmarkChapterIndex'] as int?,
-        bookmarkChapterTitle: json['bookmarkChapterTitle'] as String?,
-        bookmarkScrollOffset: (json['bookmarkScrollOffset'] as num?)?.toDouble() ?? 0,
-        bookmarkAt: json['bookmarkAt'] != null
-            ? DateTime.parse(json['bookmarkAt'] as String)
-            : null,
         addedAt: json['addedAt'] != null
             ? DateTime.parse(json['addedAt'] as String)
             : null,

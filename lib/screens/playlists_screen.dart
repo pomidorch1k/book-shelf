@@ -6,8 +6,8 @@ import 'package:provider/provider.dart';
 
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
-import '../widgets/playlist_avatar.dart';
-import 'reader_screen.dart';
+import '../widgets/playlist_cover.dart';
+import 'playlist_detail_screen.dart';
 
 class PlaylistsScreen extends StatelessWidget {
   const PlaylistsScreen({super.key});
@@ -30,43 +30,65 @@ class PlaylistsScreen extends StatelessWidget {
         builder: (ctx, setDialogState) {
           return AlertDialog(
             title: const Text('Новый плейлист'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: () async {
-                    final path = await _pickCoverImage();
-                    if (path != null) {
-                      setDialogState(() => coverPath = path);
-                    }
-                  },
-                  child: CircleAvatar(
-                    radius: 40,
-                    backgroundColor: AppColors.powderBlue,
-                    backgroundImage: coverPath != null
-                        ? FileImage(File(coverPath!))
-                        : null,
-                    child: coverPath == null
-                        ? const Icon(
-                            Icons.add_photo_alternate_outlined,
-                            size: 36,
-                            color: AppColors.burntSienna,
+            content: SizedBox(
+              width: 280,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final path = await _pickCoverImage();
+                      if (path != null) {
+                        setDialogState(() => coverPath = path);
+                      }
+                    },
+                    child: coverPath != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              File(coverPath!),
+                              width: 200,
+                              height: 200,
+                              fit: BoxFit.cover,
+                            ),
                           )
-                        : null,
+                        : Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              color: AppColors.powderBlue,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.burntSienna.withValues(alpha: 0.3),
+                                width: 2,
+                              ),
+                            ),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_photo_alternate_outlined,
+                                  size: 48,
+                                  color: AppColors.burntSienna,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Выбрать фото',
+                                  style: TextStyle(color: AppColors.burntSienna),
+                                ),
+                              ],
+                            ),
+                          ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Нажмите, чтобы выбрать обложку',
-                  style: Theme.of(ctx).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Название'),
-                  autofocus: true,
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Название'),
+                    autofocus: true,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -92,13 +114,6 @@ class PlaylistsScreen extends StatelessWidget {
     nameCtrl.dispose();
   }
 
-  Future<void> _changePlaylistCover(BuildContext context, String playlistId) async {
-    final path = await _pickCoverImage();
-    if (path != null && context.mounted) {
-      await context.read<AppState>().updatePlaylistCover(playlistId, path);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -111,7 +126,7 @@ class PlaylistsScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.collections_bookmark_outlined,
+                    Icons.grid_view_rounded,
                     size: 72,
                     color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.45),
                   ),
@@ -123,153 +138,64 @@ class PlaylistsScreen extends StatelessWidget {
                 ],
               ),
             )
-          : ListView.builder(
+          : GridView.builder(
               padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 18,
+                childAspectRatio: 0.78,
+              ),
               itemCount: state.playlists.length,
               itemBuilder: (context, index) {
                 final playlist = state.playlists[index];
-                final books =
-                    state.books.where((b) => playlist.bookIds.contains(b.id)).toList();
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  child: ExpansionTile(
-                    leading: PlaylistAvatar(playlist: playlist),
-                    title: Text(
-                      playlist.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Text('${books.length} книг'),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (v) async {
-                        if (v == 'delete') {
-                          await state.deletePlaylist(playlist.id);
-                        } else if (v == 'add') {
-                          if (context.mounted) {
-                            await _showAddBooksDialog(context, playlist.id);
-                          }
-                        } else if (v == 'cover') {
-                          await _changePlaylistCover(context, playlist.id);
-                        } else if (v == 'remove_cover') {
-                          await state.updatePlaylistCover(playlist.id, null);
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'add',
-                          child: Text('Добавить книги'),
+                final bookCount = state.books
+                    .where((b) => playlist.bookIds.contains(b.id))
+                    .length;
+
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PlaylistDetailScreen(playlistId: playlist.id),
+                      ),
+                    );
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: PlaylistCover(playlist: playlist),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        playlist.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
                         ),
-                        const PopupMenuItem(
-                          value: 'cover',
-                          child: Text('Сменить обложку'),
+                      ),
+                      Text(
+                        '$bookCount книг',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.burntSienna.withValues(alpha: 0.7),
                         ),
-                        if (playlist.hasCover)
-                          const PopupMenuItem(
-                            value: 'remove_cover',
-                            child: Text('Убрать обложку'),
-                          ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Удалить'),
-                        ),
-                      ],
-                    ),
-                    children: books.isEmpty
-                        ? [
-                            const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text('Добавьте книги в плейлист'),
-                            ),
-                          ]
-                        : books
-                            .map(
-                              (book) => ListTile(
-                                leading: const Icon(Icons.menu_book_outlined),
-                                title: Text(book.title),
-                                subtitle: Text(book.author),
-                                trailing: book.hasBookmark
-                                    ? Icon(
-                                        Icons.bookmark,
-                                        color: AppColors.burntSienna,
-                                        size: 20,
-                                      )
-                                    : null,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ReaderScreen(book: book),
-                                    ),
-                                  );
-                                },
-                              ),
-                            )
-                            .toList(),
+                      ),
+                    ],
                   ),
                 );
               },
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _createPlaylist(context),
-        child: const Icon(Icons.create_new_folder_outlined),
+        child: const Icon(Icons.add),
       ),
-    );
-  }
-
-  Future<void> _showAddBooksDialog(BuildContext context, String playlistId) async {
-    final state = context.read<AppState>();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            final playlist = state.playlists.firstWhere((p) => p.id == playlistId);
-            return DraggableScrollableSheet(
-              expand: false,
-              initialChildSize: 0.6,
-              minChildSize: 0.4,
-              maxChildSize: 0.9,
-              builder: (_, scrollController) {
-                return Column(
-                  children: [
-                    const SizedBox(height: 12),
-                    Text(
-                      'Книги в «${playlist.name}»',
-                      style: Theme.of(ctx).textTheme.titleLarge,
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        controller: scrollController,
-                        itemCount: state.books.length,
-                        itemBuilder: (_, i) {
-                          final book = state.books[i];
-                          final selected = playlist.bookIds.contains(book.id);
-                          return CheckboxListTile(
-                            value: selected,
-                            title: Text(book.title),
-                            subtitle: Text(book.author),
-                            secondary: book.hasBookmark
-                                ? const Icon(Icons.bookmark, size: 20)
-                                : null,
-                            onChanged: (_) async {
-                              await state.toggleBookInPlaylist(playlistId, book.id);
-                              setModalState(() {});
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        );
-      },
     );
   }
 }

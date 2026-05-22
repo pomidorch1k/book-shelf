@@ -220,35 +220,6 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setBookmark({
-    required String bookId,
-    required int chapterIndex,
-    required String chapterTitle,
-    double scrollOffset = 0,
-  }) async {
-    if (_user == null) return;
-    final idx = _books.indexWhere((b) => b.id == bookId);
-    if (idx < 0) return;
-    _books[idx].bookmarkChapterIndex = chapterIndex;
-    _books[idx].bookmarkChapterTitle = chapterTitle;
-    _books[idx].bookmarkScrollOffset = scrollOffset;
-    _books[idx].bookmarkAt = DateTime.now();
-    await _storage.saveBooks(_user!.id, _books);
-    notifyListeners();
-  }
-
-  Future<void> clearBookmark(String bookId) async {
-    if (_user == null) return;
-    final idx = _books.indexWhere((b) => b.id == bookId);
-    if (idx < 0) return;
-    _books[idx].bookmarkChapterIndex = null;
-    _books[idx].bookmarkChapterTitle = null;
-    _books[idx].bookmarkScrollOffset = 0;
-    _books[idx].bookmarkAt = null;
-    await _storage.saveBooks(_user!.id, _books);
-    notifyListeners();
-  }
-
   Future<String?> persistPlaylistCover(String sourcePath) async {
     final dir = await getApplicationDocumentsDirectory();
     final coversDir = Directory(p.join(dir.path, 'playlist_covers'));

@@ -51,9 +51,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     super.dispose();
   }
 
-  BookItem _currentBook(AppState state) =>
-      state.bookById(widget.book.id) ?? widget.book;
-
   Future<void> _load() async {
     final state = context.read<AppState>();
     try {
@@ -109,59 +106,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  void _goToChapter(int index, {double? scrollOffset}) {
+  void _goToChapter(int index) {
     if (_data == null || index < 0 || index >= _data!.chapters.length) return;
     setState(() => _chapterIndex = index);
     _saveProgress();
     if (index == _data!.chapters.length - 1) {
       context.read<AppState>().recordReadingSession(minutes: 5);
     }
-    if (scrollOffset != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(scrollOffset.clamp(
-            0.0,
-            _scrollController.position.maxScrollExtent,
-          ));
-        }
-      });
-    } else if (_scrollController.hasClients) {
+    if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
-    }
-  }
-
-  Future<void> _setBookmark() async {
-    if (_data == null) return;
-    final chapter = _data!.chapters[_chapterIndex];
-    final offset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-    await context.read<AppState>().setBookmark(
-          bookId: widget.book.id,
-          chapterIndex: _chapterIndex,
-          chapterTitle: chapter.title,
-          scrollOffset: offset,
-        );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Закладка: ${chapter.title}')),
-      );
-    }
-  }
-
-  void _goToBookmark(AppState state) {
-    final book = _currentBook(state);
-    if (!book.hasBookmark || _data == null) return;
-    _goToChapter(
-      book.bookmarkChapterIndex!,
-      scrollOffset: book.bookmarkScrollOffset,
-    );
-  }
-
-  Future<void> _clearBookmark() async {
-    await context.read<AppState>().clearBookmark(widget.book.id);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Закладка удалена')),
-      );
     }
   }
 
@@ -170,7 +123,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final state = context.watch<AppState>();
     final settings = state.readerSettings;
     final readerTheme = AppTheme.readerTheme(settings, state.isDark);
-    final book = _currentBook(state);
 
     return PopScope(
       onPopInvokedWithResult: (_, __) {
@@ -192,23 +144,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   style: TextStyle(color: readerTheme.text, fontSize: 16),
                 ),
                 actions: [
-                  if (book.hasBookmark)
-                    IconButton(
-                      icon: Icon(Icons.bookmark, color: readerTheme.accent),
-                      tooltip: 'К закладке',
-                      onPressed: () => _goToBookmark(state),
-                    ),
-                  IconButton(
-                    icon: Icon(
-                      book.hasBookmark &&
-                              book.bookmarkChapterIndex == _chapterIndex
-                          ? Icons.bookmark
-                          : Icons.bookmark_add_outlined,
-                    ),
-                    color: readerTheme.accent,
-                    tooltip: 'Поставить закладку здесь',
-                    onPressed: _setBookmark,
-                  ),
                   IconButton(
                     icon: Icon(Icons.tune_rounded, color: readerTheme.accent),
                     tooltip: 'Настройки читалки',
@@ -238,95 +173,33 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             curve: Curves.easeOut,
                             child: _immersive
                                 ? const SizedBox.shrink()
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 6,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                _data!.chapters[_chapterIndex].title,
-                                                style: TextStyle(
-                                                  color: readerTheme.text,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                : Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 6,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            _data!.chapters[_chapterIndex].title,
+                                            style: TextStyle(
+                                              color: readerTheme.text,
+                                              fontWeight: FontWeight.w700,
                                             ),
-                                            Text(
-                                              '${_chapterIndex + 1}/${_data!.chapters.length}',
-                                              style: TextStyle(
-                                                color: readerTheme.accent,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (book.hasBookmark)
-                                        Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            16,
-                                            0,
-                                            16,
-                                            6,
-                                          ),
-                                          child: Material(
-                                            color: readerTheme.accent
-                                                .withValues(alpha: 0.12),
-                                            borderRadius: BorderRadius.circular(12),
-                                            child: InkWell(
-                                              onTap: () => _goToBookmark(state),
-                                              onLongPress: _clearBookmark,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 8,
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Icon(
-                                                      Icons.bookmark,
-                                                      size: 18,
-                                                      color: readerTheme.accent,
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        book.bookmarkChapterTitle ??
-                                                            'Глава ${book.bookmarkChapterIndex! + 1}',
-                                                        style: TextStyle(
-                                                          color: readerTheme.text,
-                                                          fontSize: 13,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow:
-                                                            TextOverflow.ellipsis,
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      'Перейти',
-                                                      style: TextStyle(
-                                                        color: readerTheme.accent,
-                                                        fontWeight: FontWeight.w600,
-                                                        fontSize: 13,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                    ],
+                                        Text(
+                                          '${_chapterIndex + 1}/${_data!.chapters.length}',
+                                          style: TextStyle(
+                                            color: readerTheme.accent,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                           ),
                           Expanded(
